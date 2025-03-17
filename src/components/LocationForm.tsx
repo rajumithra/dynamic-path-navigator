@@ -33,10 +33,8 @@ const LocationForm: React.FC = () => {
     if (location) {
       if (locationType === 'source') {
         setSourceLocation(locationName);
-        setSource(location.coordinates);
       } else {
         setDestinationLocation(locationName);
-        setDestination(location.coordinates);
       }
     }
   };
@@ -44,10 +42,10 @@ const LocationForm: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const sourceLocation = predefinedLocations.find(loc => loc.name === sourceLocation);
-    const destinationLocation = predefinedLocations.find(loc => loc.name === destinationLocation);
+    const sourceLocationObj = predefinedLocations.find(loc => loc.name === sourceLocation);
+    const destinationLocationObj = predefinedLocations.find(loc => loc.name === destinationLocation);
     
-    if (!sourceLocation || !destinationLocation) {
+    if (!sourceLocationObj || !destinationLocationObj) {
       toast.error('Please select both source and destination locations');
       return;
     }
@@ -57,6 +55,11 @@ const LocationForm: React.FC = () => {
       return;
     }
     
+    // Set the coordinates in the navigation context
+    setSource(sourceLocationObj.coordinates);
+    setDestination(destinationLocationObj.coordinates);
+    
+    // Navigate to the navigation page
     navigate('/navigation');
   };
 

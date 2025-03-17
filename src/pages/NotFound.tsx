@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { MapOff } from "lucide-react";
+import { ZapOff } from "lucide-react";
 
 const NotFound = () => {
   const location = useLocation();
@@ -21,7 +21,7 @@ const NotFound = () => {
       <div className="text-center p-8 max-w-md">
         <div className="mb-6 flex justify-center">
           <div className="bg-red-100 p-4 rounded-full">
-            <MapOff className="h-12 w-12 text-red-500" />
+            <ZapOff className="h-12 w-12 text-red-500" />
           </div>
         </div>
         <h1 className="text-4xl font-bold mb-4 text-gray-900">404</h1>

@@ -7,7 +7,8 @@ import { useNavigation } from '@/context/NavigationContext';
 import MapView from '@/components/MapView';
 import Camera from '@/components/Camera';
 import ObstacleAlert from '@/components/ObstacleAlert';
-import { ArrowLeft, Navigation as NavigationIcon } from 'lucide-react';
+import { ArrowLeft, MapPin as MapPinIcon, Navigation as NavigationIcon } from 'lucide-react';
+import MapPin from '@/components/MapPin';
 
 const NavigationPage = () => {
   const navigate = useNavigate();
@@ -95,9 +96,7 @@ const NavigationPage = () => {
             <CardContent>
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="bg-nav/10 h-8 w-8 rounded-full flex items-center justify-center">
-                    <MapPin className="h-4 w-4 text-nav" />
-                  </div>
+                  <MapPin type="source" />
                   <div>
                     <p className="text-sm text-gray-500">Starting Point</p>
                     <p className="font-medium">Current Location</p>
@@ -107,9 +106,7 @@ const NavigationPage = () => {
                 <div className="border-l-2 border-dashed border-gray-300 h-12 ml-4"></div>
                 
                 <div className="flex items-center gap-3">
-                  <div className="bg-nav-secondary/10 h-8 w-8 rounded-full flex items-center justify-center">
-                    <Navigation className="h-4 w-4 text-nav-secondary" />
-                  </div>
+                  <MapPin type="destination" />
                   <div>
                     <p className="text-sm text-gray-500">Destination</p>
                     <p className="font-medium">Target Location</p>

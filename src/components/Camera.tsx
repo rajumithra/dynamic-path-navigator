@@ -17,7 +17,9 @@ const Camera: React.FC<CameraProps> = ({ onObstacleDetected }) => {
   const [isDetecting, setIsDetecting] = useState(false);
   const [detectionError, setDetectionError] = useState<string | null>(null);
   const [cameraPermission, setCameraPermission] = useState<'granted' | 'denied' | 'pending'>('pending');
+  const [isDetectionActive, setIsDetectionActive] = useState(false);
   const { setObstacleDetected } = useNavigation();
+  const detectionTimeoutRef = useRef<number | null>(null);
 
   // Initialize camera and model
   useEffect(() => {
@@ -50,6 +52,11 @@ const Camera: React.FC<CameraProps> = ({ onObstacleDetected }) => {
 
       toast.success('Camera and object detection ready');
       
+      // Delay starting detection to avoid false positives
+      setTimeout(() => {
+        setIsDetectionActive(true);
+      }, 3000);
+      
     } catch (error) {
       console.error('Error setting up camera:', error);
       
@@ -75,6 +82,10 @@ const Camera: React.FC<CameraProps> = ({ onObstacleDetected }) => {
         const stream = videoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach(track => track.stop());
       }
+      
+      if (detectionTimeoutRef.current) {
+        clearTimeout(detectionTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -83,7 +94,7 @@ const Camera: React.FC<CameraProps> = ({ onObstacleDetected }) => {
     let detectionInterval: number;
     
     const runDetection = async () => {
-      if (!isModelLoaded || !videoRef.current || !videoRef.current.readyState || cameraPermission !== 'granted') return;
+      if (!isModelLoaded || !videoRef.current || !videoRef.current.readyState || cameraPermission !== 'granted' || !isDetectionActive) return;
       
       setIsDetecting(true);
       
@@ -92,10 +103,13 @@ const Camera: React.FC<CameraProps> = ({ onObstacleDetected }) => {
         const predictions = await detectObjects(videoRef.current);
         
         // Check if any obstacles are detected
-        const obstacles = detectObstacles(predictions);
+        const obstacles = detectObstacles(predictions, 0.65); // Increased threshold for higher confidence
         
         if (obstacles.length > 0) {
           console.log('Obstacle detected:', obstacles);
+          
+          // To prevent rapid multiple detections, add a cooldown
+          setIsDetectionActive(false);
           setObstacleDetected(true);
           onObstacleDetected();
           
@@ -103,6 +117,11 @@ const Camera: React.FC<CameraProps> = ({ onObstacleDetected }) => {
           toast.warning(`Obstacle detected: ${obstacles[0].class}`, {
             description: 'Rerouting to avoid obstacle'
           });
+          
+          // Reset detection after a cooldown period
+          detectionTimeoutRef.current = window.setTimeout(() => {
+            setIsDetectionActive(true);
+          }, 5000);
         }
       } catch (error) {
         console.error('Detection error:', error);
@@ -111,7 +130,7 @@ const Camera: React.FC<CameraProps> = ({ onObstacleDetected }) => {
       }
     };
 
-    if (isModelLoaded && cameraPermission === 'granted') {
+    if (isModelLoaded && cameraPermission === 'granted' && isDetectionActive) {
       // Run detection every 1 second
       detectionInterval = window.setInterval(runDetection, 1000);
     }
@@ -119,12 +138,18 @@ const Camera: React.FC<CameraProps> = ({ onObstacleDetected }) => {
     return () => {
       if (detectionInterval) clearInterval(detectionInterval);
     };
-  }, [isModelLoaded, onObstacleDetected, setObstacleDetected, cameraPermission]);
+  }, [isModelLoaded, onObstacleDetected, setObstacleDetected, cameraPermission, isDetectionActive]);
 
   const handleRetry = () => {
     setDetectionError(null);
     setCameraPermission('pending');
+    setIsDetectionActive(false);
     setupCamera();
+  };
+
+  const toggleDetection = () => {
+    setIsDetectionActive(!isDetectionActive);
+    toast.info(isDetectionActive ? 'Detection paused' : 'Detection activated');
   };
 
   return (
@@ -156,7 +181,7 @@ const Camera: React.FC<CameraProps> = ({ onObstacleDetected }) => {
         {/* Camera UI elements */}
         <div className="absolute inset-0 pointer-events-none">
           {/* Detection indicator */}
-          {isDetecting && (
+          {isDetecting && isDetectionActive && (
             <div className="absolute top-4 right-4">
               <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse-soft"></div>
             </div>
@@ -174,11 +199,23 @@ const Camera: React.FC<CameraProps> = ({ onObstacleDetected }) => {
         </div>
       </div>
       
-      <p className="text-sm text-gray-500 mt-2 text-center">
-        {cameraPermission === 'granted' 
-          ? 'Camera is scanning for obstacles' 
-          : 'Please allow camera access for obstacle detection'}
-      </p>
+      <div className="flex justify-between items-center mt-2">
+        <p className="text-sm text-gray-500">
+          {cameraPermission === 'granted' 
+            ? (isDetectionActive ? 'Scanning for obstacles' : 'Detection paused') 
+            : 'Please allow camera access'}
+        </p>
+        
+        {cameraPermission === 'granted' && (
+          <Button 
+            size="sm" 
+            variant={isDetectionActive ? "default" : "outline"}
+            onClick={toggleDetection}
+          >
+            {isDetectionActive ? 'Pause Detection' : 'Start Detection'}
+          </Button>
+        )}
+      </div>
     </div>
   );
 };

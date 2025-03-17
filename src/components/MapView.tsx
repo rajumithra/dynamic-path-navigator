@@ -1,10 +1,11 @@
-
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
 import { Icon } from 'leaflet';
 import { useNavigation } from '@/context/NavigationContext';
 import { getRoutes } from '@/services/routingService';
 import { toast } from 'sonner';
+import { AlertCircle, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import 'leaflet/dist/leaflet.css';
 
 // Custom map icons
@@ -105,13 +106,19 @@ const MapView: React.FC = () => {
   
   const [routeCoordinates, setRouteCoordinates] = useState<[number, number][]>([]);
   const [alternateRouteCoords, setAlternateRouteCoords] = useState<[number, number][][]>([]);
+  const [isLoadingRoutes, setIsLoadingRoutes] = useState(false);
+  const [routeError, setRouteError] = useState<string | null>(null);
 
   // Fetch routes when source and destination are set
   useEffect(() => {
     async function fetchRoutes() {
       if (!source || !destination) return;
 
+      setIsLoadingRoutes(true);
+      setRouteError(null);
+
       try {
+        console.log('Fetching routes between', source, 'and', destination);
         const routes = await getRoutes(source, destination);
         
         if (routes && routes.length > 0) {
@@ -139,7 +146,10 @@ const MapView: React.FC = () => {
         }
       } catch (error) {
         console.error('Error fetching routes:', error);
+        setRouteError('Could not fetch routes. Please try again.');
         toast.error('Could not fetch routes. Please try again.');
+      } finally {
+        setIsLoadingRoutes(false);
       }
     }
 
@@ -167,6 +177,53 @@ const MapView: React.FC = () => {
     }
   }, [obstacleDetected, alternativeRoutes, setCurrentRoute, setAlternativeRoutes, alternateRouteCoords]);
 
+  const handleRetryRoute = async () => {
+    if (!source || !destination) return;
+    
+    fetchRoutes();
+  };
+
+  const fetchRoutes = async () => {
+    if (!source || !destination) return;
+
+    setIsLoadingRoutes(true);
+    setRouteError(null);
+
+    try {
+      const routes = await getRoutes(source, destination);
+      
+      if (routes && routes.length > 0) {
+        // Set the first route as current route
+        setCurrentRoute(routes[0]);
+        
+        // Convert coordinates to [lat, lng] format for Leaflet
+        const coordinates = routes[0].geometry.coordinates.map(
+          coord => [coord[1], coord[0]] as [number, number]
+        );
+        setRouteCoordinates(coordinates);
+        
+        // Save all routes for alternatives
+        setAlternativeRoutes(routes.slice(1));
+        
+        // Convert alternative routes
+        const alternativeCoords = routes.slice(1).map(route => 
+          route.geometry.coordinates.map(
+            coord => [coord[1], coord[0]] as [number, number]
+          )
+        );
+        setAlternateRouteCoords(alternativeCoords);
+        
+        toast.success('Route planned successfully!');
+      }
+    } catch (error) {
+      console.error('Error fetching routes:', error);
+      setRouteError('Could not fetch routes. Please try again.');
+      toast.error('Could not fetch routes. Please try again.');
+    } finally {
+      setIsLoadingRoutes(false);
+    }
+  };
+
   // If no source/destination, show loading
   if (!source || !destination) {
     return <div className="flex items-center justify-center h-64">Loading map...</div>;
@@ -174,6 +231,28 @@ const MapView: React.FC = () => {
 
   return (
     <div className="h-96 w-full rounded-lg overflow-hidden shadow-lg border border-gray-200">
+      {routeError && (
+        <div className="bg-red-50 p-4 rounded-lg mb-4 text-red-700 flex flex-col">
+          <div className="flex items-center mb-2">
+            <AlertCircle className="h-5 w-5 mr-2" />
+            <p className="font-medium">{routeError}</p>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="self-start" 
+            onClick={handleRetryRoute} 
+            disabled={isLoadingRoutes}
+          >
+            {isLoadingRoutes ? 'Loading...' : (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2" /> Retry
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+      
       <MapContainer
         center={[source.lat, source.lng]}
         zoom={13}
@@ -221,6 +300,15 @@ const MapView: React.FC = () => {
         {/* Fit map to bounds */}
         <MapFitter />
       </MapContainer>
+      
+      {isLoadingRoutes && (
+        <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center">
+          <div className="flex items-center space-x-2">
+            <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
+            <p>Loading routes...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

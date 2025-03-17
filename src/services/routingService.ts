@@ -22,7 +22,10 @@ export type RoutingResponse = {
 
 export async function getRoutes(source: Coordinates, destination: Coordinates): Promise<Route[]> {
   try {
-    const url = `http://router.project-osrm.org/route/v1/driving/${source.lng},${source.lat};${destination.lng},${destination.lat}?overview=full&alternatives=true&steps=true`;
+    // Changed from http to https for secure connection
+    const url = `https://router.project-osrm.org/route/v1/driving/${source.lng},${source.lat};${destination.lng},${destination.lat}?overview=full&alternatives=true&steps=true`;
+    
+    console.log('Fetching routes from:', url);
     
     const response = await fetch(url);
     
@@ -37,6 +40,7 @@ export async function getRoutes(source: Coordinates, destination: Coordinates): 
       throw new Error('No routes found between these locations');
     }
     
+    console.log('Routes fetched successfully:', data.routes.length);
     return data.routes;
   } catch (error) {
     console.error('Error fetching routes:', error);

@@ -9,6 +9,7 @@ export type Coordinates = {
 export type Route = {
   geometry: {
     coordinates: number[][];
+    type?: string;
   };
   distance: number;
   duration: number;
@@ -18,11 +19,13 @@ export type Route = {
 export type RoutingResponse = {
   routes: Route[];
   waypoints: any[];
+  code?: string;
+  message?: string;
 };
 
 export async function getRoutes(source: Coordinates, destination: Coordinates): Promise<Route[]> {
   try {
-    // Changed from http to https for secure connection
+    // Use https for secure connection
     const url = `https://router.project-osrm.org/route/v1/driving/${source.lng},${source.lat};${destination.lng},${destination.lat}?overview=full&alternatives=true&steps=true`;
     
     console.log('Fetching routes from:', url);
@@ -35,13 +38,36 @@ export async function getRoutes(source: Coordinates, destination: Coordinates): 
     
     const data: RoutingResponse = await response.json();
     
+    // Check if the API returned an error
+    if (data.code !== 'Ok') {
+      throw new Error(`Routing error: ${data.message || 'Unknown error'}`);
+    }
+    
     // Check if we got valid routes
     if (!data.routes || data.routes.length === 0) {
       throw new Error('No routes found between these locations');
     }
     
-    console.log('Routes fetched successfully:', data.routes.length);
-    return data.routes;
+    // Ensure each route has the correct format for coordinates
+    const validRoutes = data.routes.map(route => {
+      // If the route's geometry is a string (encoded polyline), decode it
+      if (typeof route.geometry === 'string') {
+        const coordinates = decodePolyline(route.geometry);
+        return {
+          ...route,
+          geometry: {
+            coordinates: coordinates.map(coord => [coord[1], coord[0]]),
+            type: 'LineString'
+          }
+        };
+      }
+      
+      // If it's already in the right format, return as is
+      return route;
+    });
+    
+    console.log('Routes fetched successfully:', validRoutes.length);
+    return validRoutes;
   } catch (error) {
     console.error('Error fetching routes:', error);
     throw error;

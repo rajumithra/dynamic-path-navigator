@@ -1,8 +1,9 @@
+
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
 import { Icon } from 'leaflet';
 import { useNavigation } from '@/context/NavigationContext';
-import { getRoutes } from '@/services/routingService';
+import { getRoutes, Route } from '@/services/routingService';
 import { toast } from 'sonner';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -109,80 +110,7 @@ const MapView: React.FC = () => {
   const [isLoadingRoutes, setIsLoadingRoutes] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
 
-  // Fetch routes when source and destination are set
-  useEffect(() => {
-    async function fetchRoutes() {
-      if (!source || !destination) return;
-
-      setIsLoadingRoutes(true);
-      setRouteError(null);
-
-      try {
-        console.log('Fetching routes between', source, 'and', destination);
-        const routes = await getRoutes(source, destination);
-        
-        if (routes && routes.length > 0) {
-          // Set the first route as current route
-          setCurrentRoute(routes[0]);
-          
-          // Convert coordinates to [lat, lng] format for Leaflet
-          const coordinates = routes[0].geometry.coordinates.map(
-            coord => [coord[1], coord[0]] as [number, number]
-          );
-          setRouteCoordinates(coordinates);
-          
-          // Save all routes for alternatives
-          setAlternativeRoutes(routes.slice(1));
-          
-          // Convert alternative routes
-          const alternativeCoords = routes.slice(1).map(route => 
-            route.geometry.coordinates.map(
-              coord => [coord[1], coord[0]] as [number, number]
-            )
-          );
-          setAlternateRouteCoords(alternativeCoords);
-          
-          toast.success('Route planned successfully!');
-        }
-      } catch (error) {
-        console.error('Error fetching routes:', error);
-        setRouteError('Could not fetch routes. Please try again.');
-        toast.error('Could not fetch routes. Please try again.');
-      } finally {
-        setIsLoadingRoutes(false);
-      }
-    }
-
-    fetchRoutes();
-  }, [source, destination, setAlternativeRoutes, setCurrentRoute]);
-
-  // Handle obstacle detection
-  useEffect(() => {
-    if (obstacleDetected && alternativeRoutes && alternativeRoutes.length > 0) {
-      // Switch to first alternative route
-      const newRoute = alternativeRoutes[0];
-      setCurrentRoute(newRoute);
-      
-      // Update route coordinates
-      const newCoordinates = newRoute.geometry.coordinates.map(
-        coord => [coord[1], coord[0]] as [number, number]
-      );
-      setRouteCoordinates(newCoordinates);
-      
-      // Update alternatives
-      setAlternativeRoutes(alternativeRoutes.slice(1));
-      setAlternateRouteCoords(alternateRouteCoords.slice(1));
-      
-      toast.info('Route updated to avoid obstacle');
-    }
-  }, [obstacleDetected, alternativeRoutes, setCurrentRoute, setAlternativeRoutes, alternateRouteCoords]);
-
-  const handleRetryRoute = async () => {
-    if (!source || !destination) return;
-    
-    fetchRoutes();
-  };
-
+  // Function to fetch routes
   const fetchRoutes = async () => {
     if (!source || !destination) return;
 
@@ -190,6 +118,7 @@ const MapView: React.FC = () => {
     setRouteError(null);
 
     try {
+      console.log('Fetching routes between', source, 'and', destination);
       const routes = await getRoutes(source, destination);
       
       if (routes && routes.length > 0) {
@@ -203,15 +132,20 @@ const MapView: React.FC = () => {
         setRouteCoordinates(coordinates);
         
         // Save all routes for alternatives
-        setAlternativeRoutes(routes.slice(1));
-        
-        // Convert alternative routes
-        const alternativeCoords = routes.slice(1).map(route => 
-          route.geometry.coordinates.map(
-            coord => [coord[1], coord[0]] as [number, number]
-          )
-        );
-        setAlternateRouteCoords(alternativeCoords);
+        if (routes.length > 1) {
+          setAlternativeRoutes(routes.slice(1));
+          
+          // Convert alternative routes
+          const alternativeCoords = routes.slice(1).map(route => 
+            route.geometry.coordinates.map(
+              coord => [coord[1], coord[0]] as [number, number]
+            )
+          );
+          setAlternateRouteCoords(alternativeCoords);
+        } else {
+          setAlternativeRoutes([]);
+          setAlternateRouteCoords([]);
+        }
         
         toast.success('Route planned successfully!');
       }
@@ -222,6 +156,47 @@ const MapView: React.FC = () => {
     } finally {
       setIsLoadingRoutes(false);
     }
+  };
+
+  // Fetch routes when source and destination are set
+  useEffect(() => {
+    if (source && destination) {
+      fetchRoutes();
+    }
+  }, [source, destination]);
+
+  // Handle obstacle detection
+  useEffect(() => {
+    if (obstacleDetected && alternativeRoutes && alternativeRoutes.length > 0) {
+      // Switch to first alternative route
+      const newRoute = alternativeRoutes[0];
+      setCurrentRoute(newRoute);
+      
+      // Update route coordinates
+      if (newRoute && newRoute.geometry && newRoute.geometry.coordinates) {
+        const newCoordinates = newRoute.geometry.coordinates.map(
+          coord => [coord[1], coord[0]] as [number, number]
+        );
+        setRouteCoordinates(newCoordinates);
+        
+        // Update alternatives
+        const remainingAlternatives = alternativeRoutes.slice(1);
+        setAlternativeRoutes(remainingAlternatives);
+        
+        if (alternateRouteCoords.length > 1) {
+          setAlternateRouteCoords(alternateRouteCoords.slice(1));
+        } else {
+          setAlternateRouteCoords([]);
+        }
+        
+        toast.info('Route updated to avoid obstacle');
+      }
+    }
+  }, [obstacleDetected, alternativeRoutes, setCurrentRoute, setAlternativeRoutes, alternateRouteCoords]);
+
+  const handleRetryRoute = () => {
+    if (!source || !destination) return;
+    fetchRoutes();
   };
 
   // If no source/destination, show loading

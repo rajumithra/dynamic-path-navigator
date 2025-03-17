@@ -7,13 +7,14 @@ import { useNavigation } from '@/context/NavigationContext';
 import MapView from '@/components/MapView';
 import Camera from '@/components/Camera';
 import ObstacleAlert from '@/components/ObstacleAlert';
-import { ArrowLeft, MapPin as MapPinIcon, Navigation as NavigationIcon } from 'lucide-react';
+import { ArrowLeft, MapPin, Navigation as NavigationIcon, AlertTriangle } from 'lucide-react';
 import MapPin from '@/components/MapPin';
 
 const NavigationPage = () => {
   const navigate = useNavigate();
-  const { source, destination, currentRoute, setObstacleDetected } = useNavigation();
+  const { source, destination, currentRoute, setObstacleDetected, obstacleDetected } = useNavigation();
   const [showObstacleAlert, setShowObstacleAlert] = useState(false);
+  const [routeStatus, setRouteStatus] = useState('active');
 
   // Redirect to home if source or destination not set
   useEffect(() => {
@@ -25,11 +26,13 @@ const NavigationPage = () => {
   const handleObstacleDetected = () => {
     setObstacleDetected(true);
     setShowObstacleAlert(true);
+    setRouteStatus('rerouting');
   };
 
   const handleAlertClose = () => {
     setShowObstacleAlert(false);
     setObstacleDetected(false);
+    setRouteStatus('active');
   };
 
   if (!source || !destination) {
@@ -70,7 +73,9 @@ const NavigationPage = () => {
                     </div>
                     <div>
                       <p className="font-medium">Status</p>
-                      <p className="text-nav-secondary">Active</p>
+                      <p className={`${routeStatus === 'active' ? 'text-nav-secondary' : 'text-orange-500'} font-medium`}>
+                        {routeStatus === 'active' ? 'Active' : 'Rerouting'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -86,6 +91,15 @@ const NavigationPage = () => {
             </CardHeader>
             <CardContent>
               <Camera onObstacleDetected={handleObstacleDetected} />
+              
+              {obstacleDetected && (
+                <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-center">
+                  <AlertTriangle className="h-5 w-5 text-orange-500 mr-2" />
+                  <p className="text-sm text-orange-700">
+                    Obstacle detected! Rerouting...
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
           

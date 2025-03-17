@@ -24,17 +24,17 @@ const predefinedLocations = [
 const LocationForm: React.FC = () => {
   const { setSource, setDestination } = useNavigation();
   const navigate = useNavigate();
-  const [sourceLocation, setSourceLocation] = useState('');
-  const [destinationLocation, setDestinationLocation] = useState('');
+  const [selectedSource, setSelectedSource] = useState('');
+  const [selectedDestination, setSelectedDestination] = useState('');
 
   const handleLocationSelect = (locationType: 'source' | 'destination', locationName: string) => {
     const location = predefinedLocations.find(loc => loc.name === locationName);
     
     if (location) {
       if (locationType === 'source') {
-        setSourceLocation(locationName);
+        setSelectedSource(locationName);
       } else {
-        setDestinationLocation(locationName);
+        setSelectedDestination(locationName);
       }
     }
   };
@@ -42,15 +42,15 @@ const LocationForm: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const sourceLocationObj = predefinedLocations.find(loc => loc.name === sourceLocation);
-    const destinationLocationObj = predefinedLocations.find(loc => loc.name === destinationLocation);
+    const sourceLocationObj = predefinedLocations.find(loc => loc.name === selectedSource);
+    const destinationLocationObj = predefinedLocations.find(loc => loc.name === selectedDestination);
     
     if (!sourceLocationObj || !destinationLocationObj) {
       toast.error('Please select both source and destination locations');
       return;
     }
     
-    if (sourceLocation === destinationLocation) {
+    if (selectedSource === selectedDestination) {
       toast.error('Source and destination cannot be the same');
       return;
     }
@@ -58,6 +58,9 @@ const LocationForm: React.FC = () => {
     // Set the coordinates in the navigation context
     setSource(sourceLocationObj.coordinates);
     setDestination(destinationLocationObj.coordinates);
+    
+    // Show success message
+    toast.success(`Navigating from ${selectedSource} to ${selectedDestination}`);
     
     // Navigate to the navigation page
     navigate('/navigation');
@@ -83,7 +86,7 @@ const LocationForm: React.FC = () => {
                   <Button
                     key={`source-${location.name}`}
                     type="button"
-                    variant={sourceLocation === location.name ? "default" : "outline"}
+                    variant={selectedSource === location.name ? "default" : "outline"}
                     size="sm"
                     onClick={() => handleLocationSelect('source', location.name)}
                     className="text-sm"
@@ -105,7 +108,7 @@ const LocationForm: React.FC = () => {
                   <Button
                     key={`dest-${location.name}`}
                     type="button"
-                    variant={destinationLocation === location.name ? "default" : "outline"}
+                    variant={selectedDestination === location.name ? "default" : "outline"}
                     size="sm"
                     onClick={() => handleLocationSelect('destination', location.name)}
                     className="text-sm"

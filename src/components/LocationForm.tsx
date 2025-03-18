@@ -1,14 +1,13 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigation } from '@/context/NavigationContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { MapPin, Navigation, Plane } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const groundLocations = [
   { name: 'New York', coordinates: { lat: 40.7128, lng: -74.0060 } },
@@ -17,7 +16,7 @@ const groundLocations = [
   { name: 'San Francisco', coordinates: { lat: 37.7749, lng: -122.4194 } },
   { name: 'Boston', coordinates: { lat: 42.3601, lng: -71.0589 } },
   { name: 'Austin', coordinates: { lat: 30.2672, lng: -97.7431 } },
-  { name: 'Seattle', coordinates: { lat: 47.6062, lng: -122.3321 } },
+  { name: 'Seattle', coordinates: { lat: 47.6062, lng: -122.3081 } },
   { name: 'Denver', coordinates: { lat: 39.7392, lng: -104.9903 } },
 ];
 
@@ -35,66 +34,74 @@ const airports = [
 const LocationForm: React.FC = () => {
   const { setSource, setDestination, setRouteType } = useNavigation();
   const navigate = useNavigate();
-  const [selectedSource, setSelectedSource] = useState('');
-  const [selectedDestination, setSelectedDestination] = useState('');
   const [transportType, setTransportType] = useState('ground');
-
-  const handleLocationSelect = (locationType: 'source' | 'destination', locationName: string) => {
-    if (transportType === 'ground') {
-      const location = groundLocations.find(loc => loc.name === locationName);
-      if (location) {
-        if (locationType === 'source') {
-          setSelectedSource(locationName);
-        } else {
-          setSelectedDestination(locationName);
-        }
-      }
-    } else {
-      const location = airports.find(loc => loc.name === locationName);
-      if (location) {
-        if (locationType === 'source') {
-          setSelectedSource(locationName);
-        } else {
-          setSelectedDestination(locationName);
-        }
-      }
-    }
-  };
+  
+  const [customSource, setCustomSource] = useState({
+    lat: '',
+    lng: '',
+    altitude: ''
+  });
+  const [customDestination, setCustomDestination] = useState({
+    lat: '',
+    lng: '',
+    altitude: ''
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    let sourceLocationObj;
-    let destinationLocationObj;
+    let sourceCoords;
+    let destinationCoords;
     
-    if (transportType === 'ground') {
-      sourceLocationObj = groundLocations.find(loc => loc.name === selectedSource);
-      destinationLocationObj = groundLocations.find(loc => loc.name === selectedDestination);
-    } else {
-      sourceLocationObj = airports.find(loc => loc.name === selectedSource);
-      destinationLocationObj = airports.find(loc => loc.name === selectedDestination);
-    }
+    const sourceLat = parseFloat(customSource.lat);
+    const sourceLng = parseFloat(customSource.lng);
+    const destLat = parseFloat(customDestination.lat);
+    const destLng = parseFloat(customDestination.lng);
     
-    if (!sourceLocationObj || !destinationLocationObj) {
-      toast.error('Please select both source and destination locations');
+    if (isNaN(sourceLat) || isNaN(sourceLng) || isNaN(destLat) || isNaN(destLng)) {
+      toast.error('Please enter valid coordinates');
       return;
     }
-    
-    if (selectedSource === selectedDestination) {
+
+    if (sourceLat === destLat && sourceLng === destLng) {
       toast.error('Source and destination cannot be the same');
       return;
     }
+
+    if (transportType === 'flight') {
+      const sourceAlt = parseFloat(customSource.altitude) || 3500;
+      const destAlt = parseFloat(customDestination.altitude) || 3500;
+      
+      sourceCoords = { lat: sourceLat, lng: sourceLng, altitude: sourceAlt };
+      destinationCoords = { lat: destLat, lng: destLng, altitude: destAlt };
+    } else {
+      sourceCoords = { lat: sourceLat, lng: sourceLng };
+      destinationCoords = { lat: destLat, lng: destLng };
+    }
     
-    // Set the coordinates in the navigation context
-    setSource(sourceLocationObj.coordinates);
-    setDestination(destinationLocationObj.coordinates);
+    setSource(sourceCoords);
+    setDestination(destinationCoords);
     setRouteType(transportType === 'ground' ? 'ground' : 'flight');
     
-    // Show success message
-    toast.success(`Planning ${transportType === 'ground' ? 'route' : 'flight'} from ${selectedSource} to ${selectedDestination}`);
+    toast.success(`Planning ${transportType === 'ground' ? 'route' : 'flight'} from (${sourceLat}, ${sourceLng}) to (${destLat}, ${destLng})`);
     
-    // Navigate to the navigation page
     navigate('/navigation');
+  };
+
+  const handleLocationSelect = (locationType: 'source' | 'destination', location: any) => {
+    if (locationType === 'source') {
+      setCustomSource({
+        lat: location.coordinates.lat.toString(),
+        lng: location.coordinates.lng.toString(),
+        altitude: location.coordinates.altitude?.toString() || ''
+      });
+    } else {
+      setCustomDestination({
+        lat: location.coordinates.lat.toString(),
+        lng: location.coordinates.lng.toString(),
+        altitude: location.coordinates.altitude?.toString() || ''
+      });
+    }
   };
 
   return (
@@ -102,7 +109,7 @@ const LocationForm: React.FC = () => {
       <CardHeader>
         <CardTitle className="text-2xl font-bold text-center">Navigation Planner</CardTitle>
         <CardDescription className="text-center">
-          Select source and destination for your journey
+          Enter coordinates or select from suggestions
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -130,20 +137,51 @@ const LocationForm: React.FC = () => {
         </Tabs>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="source" className="flex items-center gap-1">
-              <MapPin className="h-4 w-4 text-nav" /> Source Location
-            </Label>
-            <div className="relative">
-              <div className="flex gap-2 flex-wrap">
+          <div className="space-y-4">
+            <Label className="text-base font-medium">Source Location</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="sourceLat">Latitude</Label>
+                <Input
+                  id="sourceLat"
+                  placeholder="Enter latitude"
+                  value={customSource.lat}
+                  onChange={(e) => setCustomSource(prev => ({ ...prev, lat: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="sourceLng">Longitude</Label>
+                <Input
+                  id="sourceLng"
+                  placeholder="Enter longitude"
+                  value={customSource.lng}
+                  onChange={(e) => setCustomSource(prev => ({ ...prev, lng: e.target.value }))}
+                />
+              </div>
+              {transportType === 'flight' && (
+                <div className="col-span-2">
+                  <Label htmlFor="sourceAlt">Altitude (ft)</Label>
+                  <Input
+                    id="sourceAlt"
+                    placeholder="Enter altitude (optional)"
+                    value={customSource.altitude}
+                    onChange={(e) => setCustomSource(prev => ({ ...prev, altitude: e.target.value }))}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="mt-2">
+              <Label className="text-sm text-muted-foreground">Suggestions:</Label>
+              <div className="flex gap-2 flex-wrap mt-1">
                 {(transportType === 'ground' ? groundLocations : airports).slice(0, 4).map(location => (
                   <Button
                     key={`source-${location.name}`}
                     type="button"
-                    variant={selectedSource === location.name ? "default" : "outline"}
+                    variant="outline"
                     size="sm"
-                    onClick={() => handleLocationSelect('source', location.name)}
-                    className="text-sm"
+                    onClick={() => handleLocationSelect('source', location)}
+                    className="text-xs"
                   >
                     {location.name}
                   </Button>
@@ -151,21 +189,52 @@ const LocationForm: React.FC = () => {
               </div>
             </div>
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="destination" className="flex items-center gap-1">
-              <Navigation className="h-4 w-4 text-nav-secondary" /> Destination
-            </Label>
-            <div className="relative">
-              <div className="flex gap-2 flex-wrap">
+
+          <div className="space-y-4">
+            <Label className="text-base font-medium">Destination Location</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="destLat">Latitude</Label>
+                <Input
+                  id="destLat"
+                  placeholder="Enter latitude"
+                  value={customDestination.lat}
+                  onChange={(e) => setCustomDestination(prev => ({ ...prev, lat: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="destLng">Longitude</Label>
+                <Input
+                  id="destLng"
+                  placeholder="Enter longitude"
+                  value={customDestination.lng}
+                  onChange={(e) => setCustomDestination(prev => ({ ...prev, lng: e.target.value }))}
+                />
+              </div>
+              {transportType === 'flight' && (
+                <div className="col-span-2">
+                  <Label htmlFor="destAlt">Altitude (ft)</Label>
+                  <Input
+                    id="destAlt"
+                    placeholder="Enter altitude (optional)"
+                    value={customDestination.altitude}
+                    onChange={(e) => setCustomDestination(prev => ({ ...prev, altitude: e.target.value }))}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="mt-2">
+              <Label className="text-sm text-muted-foreground">Suggestions:</Label>
+              <div className="flex gap-2 flex-wrap mt-1">
                 {(transportType === 'ground' ? groundLocations : airports).slice(4).map(location => (
                   <Button
                     key={`dest-${location.name}`}
                     type="button"
-                    variant={selectedDestination === location.name ? "default" : "outline"}
+                    variant="outline"
                     size="sm"
-                    onClick={() => handleLocationSelect('destination', location.name)}
-                    className="text-sm"
+                    onClick={() => handleLocationSelect('destination', location)}
+                    className="text-xs"
                   >
                     {location.name}
                   </Button>
@@ -179,9 +248,6 @@ const LocationForm: React.FC = () => {
           </Button>
         </form>
       </CardContent>
-      <CardFooter className="flex justify-center text-sm text-muted-foreground">
-        {transportType === 'ground' ? 'Real-time navigation with obstacle detection' : 'Flight path planning with airspace monitoring'}
-      </CardFooter>
     </Card>
   );
 };

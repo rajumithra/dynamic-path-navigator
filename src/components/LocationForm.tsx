@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -68,8 +67,8 @@ const LocationForm: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    let sourceLocation;
-    let destinationLocation;
+    let sourceLocationData;
+    let destinationLocationData;
     
     // Handle source location
     if (useCustomSource) {
@@ -81,23 +80,22 @@ const LocationForm: React.FC = () => {
         return;
       }
       
-      let sourceCoords = { lat: sourceLat, lng: sourceLng };
-      if (transportType === 'flight') {
-        sourceCoords.altitude = parseFloat(customSource.altitude) || 3500;
-      }
-      
-      sourceLocation = {
+      sourceLocationData = {
         name: customSource.name || `Custom (${sourceLat.toFixed(4)}, ${sourceLng.toFixed(4)})`,
-        coordinates: sourceCoords
+        coordinates: {
+          lat: sourceLat,
+          lng: sourceLng,
+          ...(transportType === 'flight' && { altitude: parseFloat(customSource.altitude) || 3500 })
+        }
       };
     } else {
       const locations = transportType === 'ground' ? groundLocations : airports;
       const source = locations.find(loc => loc.name === sourceLocation);
-      if (!source) {
+      if (!source || !sourceLocation) {
         toast.error('Please select a source location');
         return;
       }
-      sourceLocation = source;
+      sourceLocationData = source;
     }
     
     // Handle destination location
@@ -110,39 +108,38 @@ const LocationForm: React.FC = () => {
         return;
       }
       
-      let destCoords = { lat: destLat, lng: destLng };
-      if (transportType === 'flight') {
-        destCoords.altitude = parseFloat(customDestination.altitude) || 3500;
-      }
-      
-      destinationLocation = {
+      destinationLocationData = {
         name: customDestination.name || `Custom (${destLat.toFixed(4)}, ${destLng.toFixed(4)})`,
-        coordinates: destCoords
+        coordinates: {
+          lat: destLat,
+          lng: destLng,
+          ...(transportType === 'flight' && { altitude: parseFloat(customDestination.altitude) || 3500 })
+        }
       };
     } else {
       const locations = transportType === 'ground' ? groundLocations : airports;
       const destination = locations.find(loc => loc.name === destinationLocation);
-      if (!destination) {
+      if (!destination || !destinationLocation) {
         toast.error('Please select a destination location');
         return;
       }
-      destinationLocation = destination;
+      destinationLocationData = destination;
     }
     
     // Validate that source and destination are different
-    const sourceCoords = sourceLocation.coordinates;
-    const destCoords = destinationLocation.coordinates;
+    const sourceCoords = sourceLocationData.coordinates;
+    const destCoords = destinationLocationData.coordinates;
     
     if (sourceCoords.lat === destCoords.lat && sourceCoords.lng === destCoords.lng) {
       toast.error('Source and destination cannot be the same');
       return;
     }
     
-    setSource(sourceLocation);
-    setDestination(destinationLocation);
+    setSource(sourceLocationData);
+    setDestination(destinationLocationData);
     setRouteType(transportType === 'ground' ? 'ground' : 'flight');
     
-    toast.success(`Planning ${transportType === 'ground' ? 'route' : 'flight'} from ${sourceLocation.name} to ${destinationLocation.name}`);
+    toast.success(`Planning ${transportType === 'ground' ? 'route' : 'flight'} from ${sourceLocationData.name} to ${destinationLocationData.name}`);
     
     navigate('/navigation');
   };

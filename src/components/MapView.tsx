@@ -1,11 +1,10 @@
-
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
 import { Icon, DivIcon } from 'leaflet';
 import { useNavigation } from '@/context/NavigationContext';
-import { getRoutes, Route } from '@/services/routingService';
+import { getRoutes } from '@/services/routingService';
 import { toast } from 'sonner';
-import { AlertCircle, RefreshCw, Plane } from 'lucide-react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import 'leaflet/dist/leaflet.css';
 
@@ -50,8 +49,8 @@ const MapFitter = () => {
   useEffect(() => {
     if (source && destination) {
       const bounds = [
-        [source.lat, source.lng],
-        [destination.lat, destination.lng],
+        [source.coordinates.lat, source.coordinates.lng],
+        [destination.coordinates.lat, destination.coordinates.lng],
       ];
       map.fitBounds(bounds as any);
     }
@@ -155,7 +154,7 @@ const MapView: React.FC = () => {
 
     try {
       console.log(`Fetching ${isFlightMode ? 'flight' : 'ground'} routes between`, source, 'and', destination);
-      const routes = await getRoutes(source, destination, isFlightMode);
+      const routes = await getRoutes(source.coordinates, destination.coordinates, isFlightMode);
       
       if (routes && routes.length > 0) {
         // Set the first route as current route
@@ -269,7 +268,7 @@ const MapView: React.FC = () => {
       )}
       
       <MapContainer
-        center={[source.lat, source.lng]}
+        center={[source.coordinates.lat, source.coordinates.lng]}
         zoom={13}
         style={{ height: '100%', width: '100%' }}
       >
@@ -279,19 +278,19 @@ const MapView: React.FC = () => {
         />
         
         {/* Source marker */}
-        <Marker position={[source.lat, source.lng]} icon={sourceIcon}>
-          {isFlightMode && source.altitude && (
+        <Marker position={[source.coordinates.lat, source.coordinates.lng]} icon={sourceIcon}>
+          {isFlightMode && source.coordinates.altitude && (
             <div className="bg-white p-1 text-xs rounded shadow">
-              {source.altitude} ft
+              {source.coordinates.altitude} ft
             </div>
           )}
         </Marker>
         
         {/* Destination marker */}
-        <Marker position={[destination.lat, destination.lng]} icon={destinationIcon}>
-          {isFlightMode && destination.altitude && (
+        <Marker position={[destination.coordinates.lat, destination.coordinates.lng]} icon={destinationIcon}>
+          {isFlightMode && destination.coordinates.altitude && (
             <div className="bg-white p-1 text-xs rounded shadow">
-              {destination.altitude} ft
+              {destination.coordinates.altitude} ft
             </div>
           )}
         </Marker>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -92,7 +91,7 @@ const NavigationPage = () => {
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                           <p className="font-medium">Altitude</p>
-                          <p>{source.altitude || 3500} - {destination.altitude || 3500} ft</p>
+                          <p>{source.coordinates.altitude || 3500} - {destination.coordinates.altitude || 3500} ft</p>
                         </div>
                         <div>
                           <p className="font-medium">Route Type</p>
@@ -145,7 +144,9 @@ const NavigationPage = () => {
                       {routeType === 'flight' ? 'Departure' : 'Starting Point'}
                     </p>
                     <p className="font-medium">
-                      {routeType === 'flight' ? source?.altitude + ' ft Altitude' : 'Current Location'}
+                      {routeType === 'flight' && source?.coordinates.altitude 
+                        ? `${source.coordinates.altitude} ft Altitude` 
+                        : 'Current Location'}
                     </p>
                   </div>
                 </div>
@@ -159,7 +160,9 @@ const NavigationPage = () => {
                       {routeType === 'flight' ? 'Arrival' : 'Destination'}
                     </p>
                     <p className="font-medium">
-                      {routeType === 'flight' ? destination?.altitude + ' ft Altitude' : 'Target Location'}
+                      {routeType === 'flight' && destination?.coordinates.altitude 
+                        ? `${destination.coordinates.altitude} ft Altitude` 
+                        : 'Target Location'}
                     </p>
                   </div>
                 </div>

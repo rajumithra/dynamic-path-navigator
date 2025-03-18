@@ -7,7 +7,7 @@ import { useNavigation } from '@/context/NavigationContext';
 import MapView from '@/components/MapView';
 import Camera from '@/components/Camera';
 import ObstacleAlert from '@/components/ObstacleAlert';
-import { ArrowLeft, MapPin, Navigation as NavigationIcon, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, MapPin as MapPinIcon, Navigation as NavigationIcon, AlertTriangle } from 'lucide-react';
 import MapPin from '@/components/MapPin';
 
 const NavigationPage = () => {

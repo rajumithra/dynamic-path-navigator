@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
-import { Icon } from 'leaflet';
+import { Icon, DivIcon } from 'leaflet';
 import { useNavigation } from '@/context/NavigationContext';
 import { getRoutes, Route } from '@/services/routingService';
 import { toast } from 'sonner';
@@ -28,14 +28,19 @@ const destinationIcon = new Icon({
   shadowSize: [41, 41],
 });
 
-const planeIcon = new Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
+// Create a custom div icon for the plane that supports rotation via CSS
+const createPlaneIcon = (rotation = 0) => {
+  return new DivIcon({
+    html: `<div style="transform: rotate(${rotation}deg);">
+             <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+               <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>
+             </svg>
+           </div>`,
+    className: '',
+    iconSize: [25, 25],
+    iconAnchor: [12, 12],
+  });
+};
 
 // Helper component to fit map to bounds
 const MapFitter = () => {
@@ -59,6 +64,7 @@ const MapFitter = () => {
 const NavigationMarker = ({ positions, isFlightMode }: { positions: [number, number][], isFlightMode: boolean }) => {
   const [markerPosition, setMarkerPosition] = useState<[number, number] | null>(null);
   const [currentPositionIndex, setCurrentPositionIndex] = useState(0);
+  const [bearing, setBearing] = useState(0);
   const map = useMap();
 
   useEffect(() => {
@@ -77,6 +83,26 @@ const NavigationMarker = ({ positions, isFlightMode }: { positions: [number, num
           return prev;
         }
         
+        // Calculate bearing (direction) between current and next position
+        if (isFlightMode && nextIndex < positions.length) {
+          const currentPos = positions[prev];
+          const nextPos = positions[nextIndex];
+          
+          // Calculate bearing angle
+          const startLat = currentPos[0] * Math.PI / 180;
+          const startLng = currentPos[1] * Math.PI / 180;
+          const destLat = nextPos[0] * Math.PI / 180;
+          const destLng = nextPos[1] * Math.PI / 180;
+          
+          const y = Math.sin(destLng - startLng) * Math.cos(destLat);
+          const x = Math.cos(startLat) * Math.sin(destLat) -
+                  Math.sin(startLat) * Math.cos(destLat) * Math.cos(destLng - startLng);
+          const bearingRad = Math.atan2(y, x);
+          const bearingDeg = (bearingRad * 180 / Math.PI + 360) % 360;
+          
+          setBearing(bearingDeg);
+        }
+        
         setMarkerPosition(positions[nextIndex]);
         map.panTo(positions[nextIndex]);
         return nextIndex;
@@ -84,15 +110,20 @@ const NavigationMarker = ({ positions, isFlightMode }: { positions: [number, num
     }, 500); // Update every 500ms
 
     return () => clearInterval(intervalId);
-  }, [positions, map]);
+  }, [positions, map, isFlightMode]);
 
   if (!markerPosition) return null;
 
-  return (
+  // Use the appropriate icon based on the mode
+  return isFlightMode ? (
     <Marker
       position={markerPosition}
-      icon={isFlightMode ? planeIcon : sourceIcon}
-      rotationAngle={isFlightMode ? 45 : 0}
+      icon={createPlaneIcon(bearing)}
+    />
+  ) : (
+    <Marker
+      position={markerPosition}
+      icon={sourceIcon}
     />
   );
 };

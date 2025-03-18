@@ -5,7 +5,7 @@ import { Icon } from 'leaflet';
 import { useNavigation } from '@/context/NavigationContext';
 import { getRoutes, Route } from '@/services/routingService';
 import { toast } from 'sonner';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, Plane } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import 'leaflet/dist/leaflet.css';
 
@@ -21,6 +21,15 @@ const sourceIcon = new Icon({
 
 const destinationIcon = new Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+const planeIcon = new Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
   iconSize: [25, 41],
   iconAnchor: [12, 41],
@@ -47,7 +56,7 @@ const MapFitter = () => {
 };
 
 // Navigation marker that moves along the path
-const NavigationMarker = ({ positions }: { positions: [number, number][] }) => {
+const NavigationMarker = ({ positions, isFlightMode }: { positions: [number, number][], isFlightMode: boolean }) => {
   const [markerPosition, setMarkerPosition] = useState<[number, number] | null>(null);
   const [currentPositionIndex, setCurrentPositionIndex] = useState(0);
   const map = useMap();
@@ -82,14 +91,8 @@ const NavigationMarker = ({ positions }: { positions: [number, number][] }) => {
   return (
     <Marker
       position={markerPosition}
-      icon={new Icon({
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41],
-      })}
+      icon={isFlightMode ? planeIcon : sourceIcon}
+      rotationAngle={isFlightMode ? 45 : 0}
     />
   );
 };
@@ -102,13 +105,15 @@ const MapView: React.FC = () => {
     setCurrentRoute,
     currentRoute, 
     alternativeRoutes,
-    obstacleDetected
+    obstacleDetected,
+    routeType
   } = useNavigation();
   
   const [routeCoordinates, setRouteCoordinates] = useState<[number, number][]>([]);
   const [alternateRouteCoords, setAlternateRouteCoords] = useState<[number, number][][]>([]);
   const [isLoadingRoutes, setIsLoadingRoutes] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
+  const isFlightMode = routeType === 'flight';
 
   // Function to fetch routes
   const fetchRoutes = async () => {
@@ -118,41 +123,45 @@ const MapView: React.FC = () => {
     setRouteError(null);
 
     try {
-      console.log('Fetching routes between', source, 'and', destination);
-      const routes = await getRoutes(source, destination);
+      console.log(`Fetching ${isFlightMode ? 'flight' : 'ground'} routes between`, source, 'and', destination);
+      const routes = await getRoutes(source, destination, isFlightMode);
       
       if (routes && routes.length > 0) {
         // Set the first route as current route
         setCurrentRoute(routes[0]);
         
         // Convert coordinates to [lat, lng] format for Leaflet
-        const coordinates = routes[0].geometry.coordinates.map(
-          coord => [coord[1], coord[0]] as [number, number]
-        );
-        setRouteCoordinates(coordinates);
-        
-        // Save all routes for alternatives
-        if (routes.length > 1) {
-          setAlternativeRoutes(routes.slice(1));
-          
-          // Convert alternative routes
-          const alternativeCoords = routes.slice(1).map(route => 
-            route.geometry.coordinates.map(
-              coord => [coord[1], coord[0]] as [number, number]
-            )
+        if (routes[0].geometry && routes[0].geometry.coordinates) {
+          const coordinates = routes[0].geometry.coordinates.map(
+            coord => [coord[1], coord[0]] as [number, number]
           );
-          setAlternateRouteCoords(alternativeCoords);
+          setRouteCoordinates(coordinates);
+          
+          // Save all routes for alternatives
+          if (routes.length > 1) {
+            setAlternativeRoutes(routes.slice(1));
+            
+            // Convert alternative routes
+            const alternativeCoords = routes.slice(1).map(route => 
+              route.geometry.coordinates.map(
+                coord => [coord[1], coord[0]] as [number, number]
+              )
+            );
+            setAlternateRouteCoords(alternativeCoords);
+          } else {
+            setAlternativeRoutes([]);
+            setAlternateRouteCoords([]);
+          }
+          
+          toast.success(`${isFlightMode ? 'Flight' : 'Route'} planned successfully!`);
         } else {
-          setAlternativeRoutes([]);
-          setAlternateRouteCoords([]);
+          throw new Error('Invalid route format received');
         }
-        
-        toast.success('Route planned successfully!');
       }
     } catch (error) {
       console.error('Error fetching routes:', error);
-      setRouteError('Could not fetch routes. Please try again.');
-      toast.error('Could not fetch routes. Please try again.');
+      setRouteError(`Could not fetch ${isFlightMode ? 'flight' : 'ground'} routes. Please try again.`);
+      toast.error(`Could not fetch ${isFlightMode ? 'flight' : 'ground'} routes. Please try again.`);
     } finally {
       setIsLoadingRoutes(false);
     }
@@ -163,7 +172,7 @@ const MapView: React.FC = () => {
     if (source && destination) {
       fetchRoutes();
     }
-  }, [source, destination]);
+  }, [source, destination, routeType]);
 
   // Handle obstacle detection
   useEffect(() => {
@@ -189,7 +198,7 @@ const MapView: React.FC = () => {
           setAlternateRouteCoords([]);
         }
         
-        toast.info('Route updated to avoid obstacle');
+        toast.info(`${isFlightMode ? 'Flight path' : 'Route'} updated to avoid obstacle`);
       }
     }
   }, [obstacleDetected, alternativeRoutes, setCurrentRoute, setAlternativeRoutes, alternateRouteCoords]);
@@ -239,19 +248,32 @@ const MapView: React.FC = () => {
         />
         
         {/* Source marker */}
-        <Marker position={[source.lat, source.lng]} icon={sourceIcon} />
+        <Marker position={[source.lat, source.lng]} icon={sourceIcon}>
+          {isFlightMode && source.altitude && (
+            <div className="bg-white p-1 text-xs rounded shadow">
+              {source.altitude} ft
+            </div>
+          )}
+        </Marker>
         
         {/* Destination marker */}
-        <Marker position={[destination.lat, destination.lng]} icon={destinationIcon} />
+        <Marker position={[destination.lat, destination.lng]} icon={destinationIcon}>
+          {isFlightMode && destination.altitude && (
+            <div className="bg-white p-1 text-xs rounded shadow">
+              {destination.altitude} ft
+            </div>
+          )}
+        </Marker>
         
         {/* Main route */}
         {routeCoordinates.length > 0 && (
           <Polyline
             positions={routeCoordinates}
-            color="#3388ff"
+            color={isFlightMode ? "#3366cc" : "#3388ff"}
             weight={5}
             opacity={0.7}
             className="animate-path"
+            dashArray={isFlightMode ? "5,10" : ""}
           />
         )}
         
@@ -269,7 +291,10 @@ const MapView: React.FC = () => {
         
         {/* Moving navigation marker */}
         {routeCoordinates.length > 0 && (
-          <NavigationMarker positions={routeCoordinates} />
+          <NavigationMarker 
+            positions={routeCoordinates} 
+            isFlightMode={isFlightMode}
+          />
         )}
         
         {/* Fit map to bounds */}
@@ -280,7 +305,7 @@ const MapView: React.FC = () => {
         <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center">
           <div className="flex items-center space-x-2">
             <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
-            <p>Loading routes...</p>
+            <p>{isFlightMode ? 'Calculating flight path...' : 'Loading routes...'}</p>
           </div>
         </div>
       )}

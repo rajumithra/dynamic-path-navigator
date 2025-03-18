@@ -4,6 +4,7 @@
 export type Coordinates = {
   lat: number;
   lng: number;
+  altitude?: number;
 };
 
 export type Route = {
@@ -14,6 +15,7 @@ export type Route = {
   distance: number;
   duration: number;
   legs: any[];
+  altitude?: number[];
 };
 
 export type RoutingResponse = {
@@ -23,8 +25,16 @@ export type RoutingResponse = {
   message?: string;
 };
 
-export async function getRoutes(source: Coordinates, destination: Coordinates): Promise<Route[]> {
+export async function getRoutes(
+  source: Coordinates, 
+  destination: Coordinates, 
+  isFlightMode: boolean = false
+): Promise<Route[]> {
   try {
+    if (isFlightMode) {
+      return getFlightRoutes(source, destination);
+    }
+
     // Use https for secure connection
     const url = `https://router.project-osrm.org/route/v1/driving/${source.lng},${source.lat};${destination.lng},${destination.lat}?overview=full&alternatives=true&steps=true`;
     
@@ -72,6 +82,121 @@ export async function getRoutes(source: Coordinates, destination: Coordinates): 
     console.error('Error fetching routes:', error);
     throw error;
   }
+}
+
+// Generate flight routes with a direct path and variations
+export async function getFlightRoutes(source: Coordinates, destination: Coordinates): Promise<Route[]> {
+  // For flight routes, we'll create a direct path and some alternatives
+  const sourceAlt = source.altitude || 3500;
+  const destAlt = destination.altitude || 3500;
+  
+  // Calculate straight line distance
+  const distance = calculateDistance(source, destination);
+  
+  // Calculate duration (assuming average flight speed of 800 km/h)
+  const duration = (distance / 800) * 3600; // Convert to seconds
+  
+  // Create direct route
+  const directRoute: Route = {
+    geometry: {
+      coordinates: createFlightPath(source, destination, 0),
+      type: 'LineString'
+    },
+    distance: distance * 1000, // Convert to meters
+    duration: duration,
+    legs: [],
+    altitude: [sourceAlt, destAlt]
+  };
+  
+  // Create alternative routes with slight variations
+  const alternativeRoutes: Route[] = [
+    {
+      geometry: {
+        coordinates: createFlightPath(source, destination, 0.1),
+        type: 'LineString'
+      },
+      distance: distance * 1000 * 1.05, // 5% longer
+      duration: duration * 1.05,
+      legs: [],
+      altitude: [sourceAlt, destAlt]
+    },
+    {
+      geometry: {
+        coordinates: createFlightPath(source, destination, -0.1),
+        type: 'LineString'
+      },
+      distance: distance * 1000 * 1.07, // 7% longer
+      duration: duration * 1.07,
+      legs: [],
+      altitude: [sourceAlt, destAlt]
+    }
+  ];
+  
+  return [directRoute, ...alternativeRoutes];
+}
+
+// Create a flight path with some variance
+function createFlightPath(source: Coordinates, destination: Coordinates, variance: number): number[][] {
+  // For a simple flight path, we'll create a path with a midpoint
+  const midPoint = {
+    lng: (source.lng + destination.lng) / 2 + variance * (destination.lng - source.lng),
+    lat: (source.lat + destination.lat) / 2 + variance * (destination.lat - source.lat)
+  };
+  
+  // Create path with some intermediate points for smoother flight visualization
+  const points: number[][] = [];
+  
+  // Add source
+  points.push([source.lng, source.lat]);
+  
+  // Add some intermediate points
+  const steps = 8;
+  for (let i = 1; i < steps; i++) {
+    const ratio = i / steps;
+    
+    // First half - from source to midpoint
+    if (i < steps / 2) {
+      const subRatio = i / (steps / 2);
+      points.push([
+        source.lng + (midPoint.lng - source.lng) * subRatio,
+        source.lat + (midPoint.lat - source.lat) * subRatio
+      ]);
+    } 
+    // Second half - from midpoint to destination
+    else {
+      const subRatio = (i - steps / 2) / (steps / 2);
+      points.push([
+        midPoint.lng + (destination.lng - midPoint.lng) * subRatio,
+        midPoint.lat + (destination.lat - midPoint.lat) * subRatio
+      ]);
+    }
+  }
+  
+  // Add destination
+  points.push([destination.lng, destination.lat]);
+  
+  return points;
+}
+
+// Calculate haversine distance between two coordinates
+function calculateDistance(source: Coordinates, destination: Coordinates): number {
+  const R = 6371; // Earth's radius in km
+  const dLat = toRad(destination.lat - source.lat);
+  const dLon = toRad(destination.lng - source.lng);
+  
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(source.lat)) * Math.cos(toRad(destination.lat)) * 
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c;
+  
+  return distance;
+}
+
+function toRad(value: number): number {
+  return value * Math.PI / 180;
 }
 
 // Helper function to decode polyline

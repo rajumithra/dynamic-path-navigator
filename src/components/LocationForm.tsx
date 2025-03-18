@@ -1,16 +1,16 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigation } from '@/context/NavigationContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { MapPin, Navigation } from 'lucide-react';
+import { MapPin, Navigation, Plane } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
-const predefinedLocations = [
-  // Major cities as examples
+const groundLocations = [
   { name: 'New York', coordinates: { lat: 40.7128, lng: -74.0060 } },
   { name: 'Los Angeles', coordinates: { lat: 34.0522, lng: -118.2437 } },
   { name: 'Chicago', coordinates: { lat: 41.8781, lng: -87.6298 } },
@@ -21,20 +21,42 @@ const predefinedLocations = [
   { name: 'Denver', coordinates: { lat: 39.7392, lng: -104.9903 } },
 ];
 
+const airports = [
+  { name: 'JFK Airport', coordinates: { lat: 40.6413, lng: -73.7781, altitude: 4000 } },
+  { name: 'LAX Airport', coordinates: { lat: 33.9416, lng: -118.4085, altitude: 3500 } },
+  { name: 'ORD Airport', coordinates: { lat: 41.9742, lng: -87.9073, altitude: 3800 } },
+  { name: 'SFO Airport', coordinates: { lat: 37.6213, lng: -122.3790, altitude: 4100 } },
+  { name: 'BOS Airport', coordinates: { lat: 42.3656, lng: -71.0096, altitude: 3700 } },
+  { name: 'AUS Airport', coordinates: { lat: 30.1975, lng: -97.6664, altitude: 3200 } },
+  { name: 'SEA Airport', coordinates: { lat: 47.4502, lng: -122.3088, altitude: 3600 } },
+  { name: 'DEN Airport', coordinates: { lat: 39.8561, lng: -104.6737, altitude: 5200 } },
+];
+
 const LocationForm: React.FC = () => {
-  const { setSource, setDestination } = useNavigation();
+  const { setSource, setDestination, setRouteType } = useNavigation();
   const navigate = useNavigate();
   const [selectedSource, setSelectedSource] = useState('');
   const [selectedDestination, setSelectedDestination] = useState('');
+  const [transportType, setTransportType] = useState('ground');
 
   const handleLocationSelect = (locationType: 'source' | 'destination', locationName: string) => {
-    const location = predefinedLocations.find(loc => loc.name === locationName);
-    
-    if (location) {
-      if (locationType === 'source') {
-        setSelectedSource(locationName);
-      } else {
-        setSelectedDestination(locationName);
+    if (transportType === 'ground') {
+      const location = groundLocations.find(loc => loc.name === locationName);
+      if (location) {
+        if (locationType === 'source') {
+          setSelectedSource(locationName);
+        } else {
+          setSelectedDestination(locationName);
+        }
+      }
+    } else {
+      const location = airports.find(loc => loc.name === locationName);
+      if (location) {
+        if (locationType === 'source') {
+          setSelectedSource(locationName);
+        } else {
+          setSelectedDestination(locationName);
+        }
       }
     }
   };
@@ -42,8 +64,16 @@ const LocationForm: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const sourceLocationObj = predefinedLocations.find(loc => loc.name === selectedSource);
-    const destinationLocationObj = predefinedLocations.find(loc => loc.name === selectedDestination);
+    let sourceLocationObj;
+    let destinationLocationObj;
+    
+    if (transportType === 'ground') {
+      sourceLocationObj = groundLocations.find(loc => loc.name === selectedSource);
+      destinationLocationObj = groundLocations.find(loc => loc.name === selectedDestination);
+    } else {
+      sourceLocationObj = airports.find(loc => loc.name === selectedSource);
+      destinationLocationObj = airports.find(loc => loc.name === selectedDestination);
+    }
     
     if (!sourceLocationObj || !destinationLocationObj) {
       toast.error('Please select both source and destination locations');
@@ -58,9 +88,10 @@ const LocationForm: React.FC = () => {
     // Set the coordinates in the navigation context
     setSource(sourceLocationObj.coordinates);
     setDestination(destinationLocationObj.coordinates);
+    setRouteType(transportType === 'ground' ? 'ground' : 'flight');
     
     // Show success message
-    toast.success(`Navigating from ${selectedSource} to ${selectedDestination}`);
+    toast.success(`Planning ${transportType === 'ground' ? 'route' : 'flight'} from ${selectedSource} to ${selectedDestination}`);
     
     // Navigate to the navigation page
     navigate('/navigation');
@@ -75,6 +106,29 @@ const LocationForm: React.FC = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <Tabs defaultValue="ground" onValueChange={setTransportType} className="mb-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="ground" className="flex items-center gap-2">
+              <Navigation className="h-4 w-4" /> Ground
+            </TabsTrigger>
+            <TabsTrigger value="flight" className="flex items-center gap-2">
+              <Plane className="h-4 w-4" /> Flight ✈️
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="ground">
+            <p className="text-sm text-muted-foreground mb-4">
+              Plan a ground transportation route with obstacle detection
+            </p>
+          </TabsContent>
+          
+          <TabsContent value="flight">
+            <p className="text-sm text-muted-foreground mb-4">
+              Plan a flight route with real-time airspace obstacle detection
+            </p>
+          </TabsContent>
+        </Tabs>
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="source" className="flex items-center gap-1">
@@ -82,7 +136,7 @@ const LocationForm: React.FC = () => {
             </Label>
             <div className="relative">
               <div className="flex gap-2 flex-wrap">
-                {predefinedLocations.slice(0, 4).map(location => (
+                {(transportType === 'ground' ? groundLocations : airports).slice(0, 4).map(location => (
                   <Button
                     key={`source-${location.name}`}
                     type="button"
@@ -104,7 +158,7 @@ const LocationForm: React.FC = () => {
             </Label>
             <div className="relative">
               <div className="flex gap-2 flex-wrap">
-                {predefinedLocations.slice(4).map(location => (
+                {(transportType === 'ground' ? groundLocations : airports).slice(4).map(location => (
                   <Button
                     key={`dest-${location.name}`}
                     type="button"
@@ -121,12 +175,12 @@ const LocationForm: React.FC = () => {
           </div>
           
           <Button type="submit" className="w-full bg-nav hover:bg-nav-accent">
-            Start Navigation
+            {transportType === 'ground' ? 'Start Navigation' : 'Plan Flight ✈️'}
           </Button>
         </form>
       </CardContent>
       <CardFooter className="flex justify-center text-sm text-muted-foreground">
-        Real-time navigation with obstacle detection
+        {transportType === 'ground' ? 'Real-time navigation with obstacle detection' : 'Flight path planning with airspace monitoring'}
       </CardFooter>
     </Card>
   );

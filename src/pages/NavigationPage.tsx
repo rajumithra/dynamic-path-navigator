@@ -7,12 +7,12 @@ import { useNavigation } from '@/context/NavigationContext';
 import MapView from '@/components/MapView';
 import Camera from '@/components/Camera';
 import ObstacleAlert from '@/components/ObstacleAlert';
-import { ArrowLeft, MapPin as MapPinIcon, Navigation as NavigationIcon, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, MapPin as MapPinIcon, Navigation as NavigationIcon, AlertTriangle, Plane } from 'lucide-react';
 import MapPin from '@/components/MapPin';
 
 const NavigationPage = () => {
   const navigate = useNavigate();
-  const { source, destination, currentRoute, setObstacleDetected, obstacleDetected } = useNavigation();
+  const { source, destination, currentRoute, setObstacleDetected, obstacleDetected, routeType } = useNavigation();
   const [showObstacleAlert, setShowObstacleAlert] = useState(false);
   const [routeStatus, setRouteStatus] = useState('active');
 
@@ -45,7 +45,9 @@ const NavigationPage = () => {
         <Button variant="outline" size="sm" onClick={() => navigate('/')}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
-        <h1 className="text-2xl font-bold">Dynamic Path Navigator</h1>
+        <h1 className="text-2xl font-bold">
+          {routeType === 'flight' ? 'Flight Path Navigator ✈️' : 'Dynamic Path Navigator'}
+        </h1>
         <div className="w-20"></div>
       </div>
 
@@ -54,7 +56,12 @@ const NavigationPage = () => {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-lg flex items-center gap-2">
-                <NavigationIcon className="h-5 w-5 text-nav" /> Navigation Map
+                {routeType === 'flight' ? (
+                  <Plane className="h-5 w-5 text-nav" />
+                ) : (
+                  <NavigationIcon className="h-5 w-5 text-nav" />
+                )}
+                {routeType === 'flight' ? 'Flight Map' : 'Navigation Map'}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -68,7 +75,9 @@ const NavigationPage = () => {
                       <p>{(currentRoute.distance / 1000).toFixed(1)} km</p>
                     </div>
                     <div>
-                      <p className="font-medium">Estimated Time</p>
+                      <p className="font-medium">
+                        {routeType === 'flight' ? 'Flight Time' : 'Estimated Time'}
+                      </p>
                       <p>{Math.round(currentRoute.duration / 60)} min</p>
                     </div>
                     <div>
@@ -78,6 +87,20 @@ const NavigationPage = () => {
                       </p>
                     </div>
                   </div>
+                  {routeType === 'flight' && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="font-medium">Altitude</p>
+                          <p>{source.altitude || 3500} - {destination.altitude || 3500} ft</p>
+                        </div>
+                        <div>
+                          <p className="font-medium">Route Type</p>
+                          <p>Direct Flight Path</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -87,7 +110,9 @@ const NavigationPage = () => {
         <div className="space-y-6">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Obstacle Detection</CardTitle>
+              <CardTitle className="text-lg">
+                {routeType === 'flight' ? 'Airspace Monitoring' : 'Obstacle Detection'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <Camera onObstacleDetected={handleObstacleDetected} />
@@ -96,7 +121,9 @@ const NavigationPage = () => {
                 <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-center">
                   <AlertTriangle className="h-5 w-5 text-orange-500 mr-2" />
                   <p className="text-sm text-orange-700">
-                    Obstacle detected! Rerouting...
+                    {routeType === 'flight' 
+                      ? 'Airspace obstacle detected! Adjusting flight path...' 
+                      : 'Obstacle detected! Rerouting...'}
                   </p>
                 </div>
               )}
@@ -105,15 +132,21 @@ const NavigationPage = () => {
           
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Navigation Instructions</CardTitle>
+              <CardTitle className="text-lg">
+                {routeType === 'flight' ? 'Flight Instructions' : 'Navigation Instructions'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <MapPin type="source" />
                   <div>
-                    <p className="text-sm text-gray-500">Starting Point</p>
-                    <p className="font-medium">Current Location</p>
+                    <p className="text-sm text-gray-500">
+                      {routeType === 'flight' ? 'Departure' : 'Starting Point'}
+                    </p>
+                    <p className="font-medium">
+                      {routeType === 'flight' ? source?.altitude + ' ft Altitude' : 'Current Location'}
+                    </p>
                   </div>
                 </div>
                 
@@ -122,15 +155,23 @@ const NavigationPage = () => {
                 <div className="flex items-center gap-3">
                   <MapPin type="destination" />
                   <div>
-                    <p className="text-sm text-gray-500">Destination</p>
-                    <p className="font-medium">Target Location</p>
+                    <p className="text-sm text-gray-500">
+                      {routeType === 'flight' ? 'Arrival' : 'Destination'}
+                    </p>
+                    <p className="font-medium">
+                      {routeType === 'flight' ? destination?.altitude + ' ft Altitude' : 'Target Location'}
+                    </p>
                   </div>
                 </div>
                 
                 <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                  <p className="text-nav font-medium mb-1">Navigation in Progress</p>
+                  <p className="text-nav font-medium mb-1">
+                    {routeType === 'flight' ? 'Flight in Progress' : 'Navigation in Progress'}
+                  </p>
                   <p className="text-sm text-gray-600">
-                    The system is actively monitoring for obstacles and will automatically adjust the route if needed.
+                    {routeType === 'flight'
+                      ? 'The system is actively monitoring airspace for obstacles and will automatically adjust the flight path if needed.'
+                      : 'The system is actively monitoring for obstacles and will automatically adjust the route if needed.'}
                   </p>
                 </div>
               </div>
@@ -140,7 +181,11 @@ const NavigationPage = () => {
       </div>
 
       {/* Obstacle Alert Dialog */}
-      <ObstacleAlert open={showObstacleAlert} onClose={handleAlertClose} />
+      <ObstacleAlert 
+        open={showObstacleAlert} 
+        onClose={handleAlertClose} 
+        isFlightMode={routeType === 'flight'} 
+      />
     </div>
   );
 };

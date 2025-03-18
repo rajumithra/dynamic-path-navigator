@@ -7,17 +7,22 @@ type Coordinates = {
   altitude?: number;
 };
 
+type Location = {
+  name: string;
+  coordinates: Coordinates;
+};
+
 type RouteType = 'ground' | 'flight';
 
 type NavigationContextType = {
-  source: Coordinates | null;
-  destination: Coordinates | null;
+  source: Location | null;
+  destination: Location | null;
   alternativeRoutes: any[] | null;
   currentRoute: any | null;
   obstacleDetected: boolean;
   routeType: RouteType;
-  setSource: (coords: Coordinates | null) => void;
-  setDestination: (coords: Coordinates | null) => void;
+  setSource: (location: Location | null) => void;
+  setDestination: (location: Location | null) => void;
   setAlternativeRoutes: (routes: any[] | null) => void;
   setCurrentRoute: (route: any | null) => void;
   setObstacleDetected: (detected: boolean) => void;
@@ -44,8 +49,8 @@ const NavigationContext = createContext<NavigationContextType>(defaultContext);
 export const useNavigation = () => useContext(NavigationContext);
 
 export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [source, setSource] = useState<Coordinates | null>(null);
-  const [destination, setDestination] = useState<Coordinates | null>(null);
+  const [source, setSource] = useState<Location | null>(null);
+  const [destination, setDestination] = useState<Location | null>(null);
   const [alternativeRoutes, setAlternativeRoutes] = useState<any[] | null>(null);
   const [currentRoute, setCurrentRoute] = useState<any | null>(null);
   const [obstacleDetected, setObstacleDetected] = useState<boolean>(false);
